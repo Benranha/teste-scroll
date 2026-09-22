@@ -1,0 +1,639 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Três livros</title>
+<meta name="description" content="Três livros sobre ser homem, numa mesa só. Homens da Palavra, A Jornada de Meninos a Homens e Pastores da Família.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23E8E7E3'/><rect x='9' y='7' width='14' height='18' rx='2' fill='%232742B0'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Geist:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="scrollcraft.css">
+<style>
+  :root {
+    --sc-canvas:     #E8E7E3;
+    --sc-surface:    #F3F2EF;
+    --sc-ink:        #16181C;
+    --sc-ink-soft:   #4C5058;
+    --sc-accent:     #2742B0;
+    --sc-accent-ink: #F6F7FB;
+    --sc-font-display: "Archivo", system-ui, sans-serif;
+    --sc-font-text:    "Geist", system-ui, sans-serif;
+
+    /* chão claro: sombras e luz de borda invertidas (taste.md, "If the canvas is light") */
+    --sc-shadow-color: 40 8% 30%;
+    --sc-e1: 0 1px 2px hsl(var(--sc-shadow-color) / 0.10), 0 2px 8px -2px hsl(var(--sc-shadow-color) / 0.10);
+    --sc-e2: 0 2px 4px hsl(var(--sc-shadow-color) / 0.10), 0 10px 24px -6px hsl(var(--sc-shadow-color) / 0.14);
+    --sc-edge: inset 0 1px 0 rgb(255 255 255 / 0.55);
+
+    --gut: clamp(1.25rem, 4.5vw, 4rem);
+    /* escrito pelo JS a cada quadro: a geometria da janela de vídeo */
+    --fx: 0px; --fy: 0px; --fk: 1;
+    --clip: inset(0 0 0 0);
+    --panel-x: 60vw;
+  }
+
+  html { background: var(--sc-canvas); }
+  body { margin: 0; color: var(--sc-ink); background: var(--sc-canvas); font-family: var(--sc-font-text); }
+
+  /* ---- a janela do mundo -------------------------------------------------
+     O engine mantém cada perna montada e cuida de opacidade e z-index. O que
+     é meu aqui é só o enquadramento: a janela se recolhe da tela cheia para
+     um retrato à direita quando a câmera pousa na mesa, e se abre de novo no
+     fim. Um clip-path e um transform, nada de width/height. */
+  .frame { position: absolute; inset: 0; clip-path: var(--clip); }
+  .film {
+    position: absolute; top: 0; left: 0;
+    width: 1080px; height: 1920px;
+    transform-origin: 0 0;
+    transform: translate3d(var(--fx), var(--fy), 0) scale(var(--fk));
+    will-change: transform;
+  }
+  .film > img, .film > video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+
+  /* ---- camada de texto --------------------------------------------------- */
+  .wash { position: absolute; inset: 0; z-index: 0; }
+  /* Uma chapa só onde o nome está. As persianas atrás dele têm faixas
+     escuras, e sem isto o contraste cai para 1,85:1 em alguns quadros. */
+  .wash--hero {
+    background: radial-gradient(62% 30% at 50% 47%,
+      color-mix(in oklab, var(--sc-canvas) 97%, transparent) 0%,
+      color-mix(in oklab, var(--sc-canvas) 94%, transparent) 40%,
+      color-mix(in oklab, var(--sc-canvas) 70%, transparent) 66%,
+      transparent 88%);
+  }
+  .wash--band { display: none; }
+
+  .hero {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0 var(--gut);
+  }
+  .hero__in { display: flex; flex-direction: column; gap: var(--sc-4); text-align: center; }
+  .hero h1 {
+    margin: 0;
+    font-family: var(--sc-font-display); font-weight: 600;
+    font-size: clamp(3rem, 11vw, 9rem);
+    letter-spacing: -0.04em; line-height: 0.94;
+    text-wrap: balance;
+  }
+  .hero p { margin: 0; font-size: var(--sc-t-sm); color: var(--sc-ink-soft); letter-spacing: 0.02em; }
+
+  /* coluna de texto: full height, centrada verticalmente por flex.
+     O engine escreve transform no bloco, então centrar por transform
+     seria sobrescrito a cada quadro. */
+  .col {
+    position: absolute; top: 0; bottom: 0;
+    left: var(--gut);
+    width: min(34rem, calc(var(--panel-x) - var(--gut) - 4.5rem));
+    display: flex; align-items: center;
+  }
+
+  .card { max-width: 34rem; }
+  .card h2 {
+    margin: 0 0 var(--sc-2);
+    font-family: var(--sc-font-display); font-weight: 600;
+    font-size: var(--sc-t-2xl); line-height: 1.02; letter-spacing: -0.03em;
+    text-wrap: balance;
+  }
+  .card__sub {
+    margin: 0 0 var(--sc-3);
+    font-size: var(--sc-t-lg); line-height: 1.3; color: var(--sc-ink);
+    max-width: 26ch;
+  }
+  .card__by { margin: 0 0 var(--sc-5); font-size: var(--sc-t-sm); color: var(--sc-ink-soft); }
+  .card dl { margin: 0; display: grid; gap: var(--sc-4); max-width: 46ch; }
+  .card dt {
+    font-size: var(--sc-t-xs); letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--sc-ink-soft); margin-bottom: var(--sc-1);
+  }
+  .card dd { margin: 0; font-size: var(--sc-t-base); line-height: 1.58; }
+
+  .close h2 {
+    margin: 0 0 var(--sc-5);
+    font-family: var(--sc-font-display); font-weight: 600;
+    font-size: var(--sc-t-3xl); line-height: 0.98; letter-spacing: -0.035em;
+    text-wrap: balance;
+  }
+  .close p { margin: 0 0 var(--sc-6); font-size: var(--sc-t-base); color: var(--sc-ink-soft); max-width: 42ch; }
+  .cta {
+    display: inline-block; padding: 0.95rem 1.6rem;
+    background: var(--sc-accent); color: var(--sc-accent-ink);
+    font-family: var(--sc-font-text); font-weight: 500; font-size: var(--sc-t-base);
+    text-decoration: none; border-radius: var(--sc-r-sm);
+    box-shadow: var(--sc-e1);
+    transition: transform 140ms var(--sc-ease-out), background-color 140ms var(--sc-ease-out);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .cta:hover { background: color-mix(in oklab, var(--sc-accent) 88%, #000); transform: translateY(-1px); }
+  }
+  .cta:active { transform: translateY(1px); }
+
+  /* ---- as marcas de corte: a assinatura ---------------------------------- */
+  .marks { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 19; pointer-events: none; }
+  .marks path, .marks line {
+    fill: none; stroke: var(--sc-accent); stroke-width: 1.5;
+    stroke-linecap: square; vector-effect: non-scaling-stroke;
+  }
+  .marks .tie { stroke-width: 1; }
+
+  /* ---- percurso: a navegação é o mapa das paradas ------------------------ */
+  .route {
+    position: fixed; z-index: 30;
+    left: var(--gut); top: var(--sc-6);
+    display: flex; flex-direction: column; gap: var(--sc-2);
+    opacity: 0; visibility: hidden;
+    transition: opacity 320ms var(--sc-ease-out);
+  }
+  .route.is-on { opacity: 1; visibility: visible; }
+  .route button {
+    appearance: none; background: none; border: 0; padding: 2px 0;
+    display: flex; align-items: center; gap: var(--sc-3);
+    font: inherit; font-size: var(--sc-t-xs); letter-spacing: 0.06em;
+    text-transform: uppercase; color: var(--sc-ink-soft); cursor: pointer;
+    text-align: left;
+  }
+  .route button::before {
+    content: ""; width: 18px; height: 1px; background: currentColor; flex: none;
+    transition: width 200ms var(--sc-ease-out);
+  }
+  .route button[aria-current="true"] { color: var(--sc-ink); }
+  .route button[aria-current="true"]::before { width: 34px; background: var(--sc-accent); height: 2px; }
+  @media (hover: hover) and (pointer: fine) { .route button:hover { color: var(--sc-ink); } }
+
+  /* ---- celular: vídeo em pé, informação numa faixa embaixo --------------- */
+  @media (max-width: 860px) {
+    .col {
+      top: auto; bottom: 0; left: 0; right: 0;
+      width: auto; height: 46svh;
+      padding: var(--sc-3) var(--gut) var(--sc-5);
+      align-items: flex-start;
+      box-sizing: border-box;
+    }
+    .card dl { gap: var(--sc-3); }
+    .card__sub { font-size: var(--sc-t-base); margin-bottom: var(--sc-2); }
+    .card__by { margin-bottom: var(--sc-4); }
+    .card dd { font-size: var(--sc-t-sm); line-height: 1.5; }
+    .close { padding-top: var(--sc-4); }
+    .close h2 { font-size: var(--sc-t-xl); margin-bottom: var(--sc-4); }
+    .close p { margin-bottom: var(--sc-5); }
+    .hero h1 { font-size: clamp(2.8rem, 16vw, 4.5rem); }
+    .wash--band {
+      display: block;
+      background: linear-gradient(to bottom,
+        transparent 0%,
+        color-mix(in oklab, var(--sc-canvas) 70%, transparent) 46%,
+        var(--sc-canvas) 62%);
+    }
+    .route {
+      left: 0; right: 0; top: 0;
+      flex-direction: row; justify-content: center; gap: var(--sc-4);
+      padding: var(--sc-3) var(--gut);
+      background: color-mix(in oklab, var(--sc-canvas) 92%, transparent);
+    }
+    .route button { font-size: 0.68rem; letter-spacing: 0.05em; gap: var(--sc-2); }
+    .route button::before { width: 10px; }
+    .route button[aria-current="true"]::before { width: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<div data-sc-mode="worldflight" data-sc-seam="0.16" data-sc-lerp="0.12">
+
+  <div data-sc-world>
+    <!-- 1 · a sala. A câmera desce da janela para a mesa. -->
+    <div data-sc-segment data-sc-w="1.545" data-sc-waypoint="A sala">
+      <div class="frame"><div class="film">
+        <img src="assets/1-sala.jpg" alt="" decoding="async">
+        <video data-sc-src="assets/1-sala.mp4" data-sc-src-mobile="assets/1-sala-m.mp4" muted playsinline></video>
+      </div></div>
+    </div>
+
+    <!-- 2 · parada: Homens da Palavra. Quadro congelado. -->
+    <div data-sc-segment data-sc-w="1.4" data-sc-waypoint="Homens da Palavra">
+      <div class="frame"><div class="film">
+        <img src="assets/2-homens.jpg" alt="O livro Homens da Palavra sobre a mesa branca." decoding="async">
+        <video data-sc-src="assets/2-homens.mp4" data-sc-src-mobile="assets/2-homens-m.mp4" muted playsinline></video>
+      </div></div>
+    </div>
+
+    <!-- 3 · caminho, sem texto -->
+    <div data-sc-segment data-sc-w="1.77" data-sc-waypoint="Caminho">
+      <div class="frame"><div class="film">
+        <img src="assets/3-caminho.jpg" alt="" decoding="async">
+        <video data-sc-src="assets/3-caminho.mp4" data-sc-src-mobile="assets/3-caminho-m.mp4" muted playsinline></video>
+      </div></div>
+    </div>
+
+    <!-- 4 · parada: A Jornada de Meninos a Homens -->
+    <div data-sc-segment data-sc-w="1.4" data-sc-waypoint="A Jornada de Meninos a Homens">
+      <div class="frame"><div class="film">
+        <img src="assets/4-jornada.jpg" alt="O livro A Jornada de Meninos a Homens sobre a mesa." decoding="async">
+        <video data-sc-src="assets/4-jornada.mp4" data-sc-src-mobile="assets/4-jornada-m.mp4" muted playsinline></video>
+      </div></div>
+    </div>
+
+    <!-- 5 · caminho, sem texto -->
+    <div data-sc-segment data-sc-w="1.32" data-sc-waypoint="Caminho">
+      <div class="frame"><div class="film">
+        <img src="assets/5-caminho.jpg" alt="" decoding="async">
+        <video data-sc-src="assets/5-caminho.mp4" data-sc-src-mobile="assets/5-caminho-m.mp4" muted playsinline></video>
+      </div></div>
+    </div>
+
+    <!-- 6 · parada: Pastores da Família -->
+    <div data-sc-segment data-sc-w="1.4" data-sc-waypoint="Pastores da Família">
+      <div class="frame"><div class="film">
+        <img src="assets/6-pastores.jpg" alt="O livro Pastores da Família sobre a mesa." decoding="async">
+        <video data-sc-src="assets/6-pastores.mp4" data-sc-src-mobile="assets/6-pastores-m.mp4" muted playsinline></video>
+      </div></div>
+    </div>
+
+    <!-- 7 · a volta para a sala -->
+    <div data-sc-segment data-sc-w="1.485" data-sc-waypoint="A volta">
+      <div class="frame"><div class="film">
+        <img src="assets/7-volta.jpg" alt="" decoding="async">
+        <video data-sc-src="assets/7-volta.mp4" data-sc-src-mobile="assets/7-volta-m.mp4" muted playsinline></video>
+      </div></div>
+    </div>
+
+    <!-- 8 · a mesa inteira, parada. O fim pousa aqui. -->
+    <div data-sc-segment data-sc-w="0.6" data-sc-waypoint="A mesa">
+      <div class="frame"><div class="film">
+        <img src="assets/8-mesa.jpg" alt="A sala e a mesa inteira, com os três livros e as ferramentas." decoding="async">
+        <video data-sc-src="assets/8-mesa.mp4" data-sc-src-mobile="assets/8-mesa-m.mp4" muted playsinline></video>
+      </div></div>
+    </div>
+  </div>
+
+  <div data-sc-world-copy>
+    <div class="wash wash--band" aria-hidden="true"></div>
+
+    <!-- A chapa do nome NÃO é um bloco [data-sc-copy]: o harness esconde todos
+         eles para fotografar o fundo, e uma chapa escondida nunca é medida.
+         Quem controla a opacidade dela é o JS abaixo. -->
+    <div class="wash wash--hero" aria-hidden="true"></div>
+    <div class="hero">
+      <div class="hero__in" data-sc-copy data-sc-window="hero">
+        <h1>Três livros</h1>
+        <p>Role a página para começar.</p>
+      </div>
+    </div>
+
+    <div class="col" data-hold="1">
+      <article class="card" data-sc-copy>
+        <h2>Homens da Palavra</h2>
+        <p class="card__sub">Lições da vida de homens que andaram com Deus.</p>
+        <p class="card__by">Nathan Busenitz, organizador. Prefácio de John MacArthur.</p>
+        <dl>
+          <div>
+            <dt>O que ensina</dt>
+            <dd>Olha para homens da Bíblia um a um e tira da vida deles lições de fé, caráter e obediência.</dd>
+          </div>
+          <div>
+            <dt>Para quem é</dt>
+            <dd>Para quem quer aprender a andar com Deus a partir de exemplos concretos, e não de teoria.</dd>
+          </div>
+        </dl>
+      </article>
+    </div>
+
+    <div class="col" data-hold="3">
+      <article class="card" data-sc-copy>
+        <h2>A Jornada de Meninos a Homens</h2>
+        <p class="card__sub">A passagem da meninice para a maturidade masculina.</p>
+        <p class="card__by">JB Carvalho.</p>
+        <dl>
+          <div>
+            <dt>O que ensina</dt>
+            <dd>Trata o amadurecimento como uma jornada com etapas e escolhas, não como algo que chega sozinho com a idade.</dd>
+          </div>
+          <div>
+            <dt>Para quem é</dt>
+            <dd>Para homens de qualquer idade que querem amadurecer, e para pais que estão criando meninos.</dd>
+          </div>
+        </dl>
+      </article>
+    </div>
+
+    <div class="col" data-hold="5">
+      <article class="card" data-sc-copy>
+        <h2>Pastores da Família</h2>
+        <p class="card__sub">Chamando e preparando homens para liderar seus lares.</p>
+        <p class="card__by">Voddie Baucham Jr.</p>
+        <dl>
+          <div>
+            <dt>O que ensina</dt>
+            <dd>Coloca no pai a responsabilidade de discipular a própria casa, e mostra como a igreja prepara homens para isso.</dd>
+          </div>
+          <div>
+            <dt>Para quem é</dt>
+            <dd>Para maridos e pais, e para igrejas que querem formar homens capazes de conduzir a família.</dd>
+          </div>
+        </dl>
+      </article>
+    </div>
+
+    <div class="col" data-final>
+      <div class="close" data-sc-copy>
+        <h2>Três livros. Uma mesa.</h2>
+        <p>Os três estão nesta mesa, na ordem em que você acabou de passar por eles.</p>
+        <!-- TODO: trocar pelo link real (WhatsApp, formulário ou loja). -->
+        <a class="cta" href="#link-da-chamada">Quero ler os três</a>
+      </div>
+    </div>
+  </div>
+
+  <svg class="marks" aria-hidden="true">
+    <path class="corner" pathLength="1"></path>
+    <path class="corner" pathLength="1"></path>
+    <path class="corner" pathLength="1"></path>
+    <path class="corner" pathLength="1"></path>
+    <line class="tie" pathLength="1"></line>
+  </svg>
+
+  <nav class="route" aria-label="Paradas">
+    <button type="button" data-goto="1">Homens da Palavra</button>
+    <button type="button" data-goto="3">A Jornada</button>
+    <button type="button" data-goto="5">Pastores da Família</button>
+  </nav>
+
+  <div data-sc-spacer aria-hidden="true"></div>
+</div>
+
+<script src="scrollcraft.js"></script>
+<script>
+(function () {
+  var root = document.documentElement;
+  var segEls = [].slice.call(document.querySelectorAll('[data-sc-segment]'));
+  var W = segEls.map(function (s) { return parseFloat(s.getAttribute('data-sc-w')); });
+  var C0 = [], run = 0;
+  W.forEach(function (w, i) { C0[i] = run; run += w; });
+  var TOTAL = run;
+
+  // Os quatro cantos de cada livro, medidos no quadro parado (fração do vídeo).
+  // Vieram do próprio arquivo: detecção de contorno no quadro congelado.
+  var BOOK = {
+    1: [[0.0897, 0.2560], [0.8732, 0.2453], [0.9696, 0.9423], [0.0792, 0.9581]],
+    3: [[0.0722, 0.1641], [0.9046, 0.1557], [0.9565, 0.8990], [0.0565, 0.9073]],
+    5: [[0.1355, 0.2301], [0.9406, 0.2177], [0.9859, 0.9443], [0.1081, 0.9403]]
+  };
+  var HOLDS = [1, 3, 5];
+
+  function box(q) {
+    var us = q.map(function (p) { return p[0]; }), vs = q.map(function (p) { return p[1]; });
+    return { u0: Math.min.apply(null, us), u1: Math.max.apply(null, us),
+             v0: Math.min.apply(null, vs), v1: Math.max.apply(null, vs) };
+  }
+
+  // As janelas de texto são escritas contra a pista inteira, a partir dos pesos,
+  // para que mexer num peso não deixe uma ficha fora do quadro parado dela.
+  document.querySelectorAll('.col[data-hold]').forEach(function (col) {
+    var i = +col.getAttribute('data-hold');
+    col.querySelector('.card').setAttribute('data-sc-window',
+      ((C0[i] + 0.06 * W[i]) / TOTAL).toFixed(4) + ' ' +
+      ((C0[i] + 0.94 * W[i]) / TOTAL).toFixed(4) + ' 0.28 0.28');
+  });
+  var fin = document.querySelector('[data-final] .close');
+  fin.setAttribute('data-sc-window', ((C0[6] + 0.55 * W[6]) / TOTAL).toFixed(4) + ' 1 0.4 0');
+  // A abertura sai enquanto o quadro ainda é a janela clara. Meia tela depois
+  // a câmera já está em cima da mesa escura e o nome não teria contraste.
+  document.querySelector('.hero').setAttribute('data-sc-window', '0 ' + (0.52 / TOTAL).toFixed(4) + ' 0 0.66');
+  var heroWash = document.querySelector('.wash--hero');
+
+  ScrollCraft.mount(document.body);
+
+  // ---- enquadramento -------------------------------------------------------
+  var mq = matchMedia('(max-width: 860px)');
+  var reduce = matchMedia('(prefers-reduced-motion: reduce)');
+  var VW = 1080, VH = 1920, AR = VW / VH;
+
+  function rect(x, y, w, h) { return { x: x, y: y, w: w, h: h }; }
+  function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
+  function smooth(x) { x = clamp(x, 0, 1); return x * x * (3 - 2 * x); }
+  function ramp(x, a, b) { return smooth((x - a) / (b - a)); }
+
+  // tela cheia: o vídeo cobre a viewport, com o eixo vertical ancorado em foco
+  function full(vw, vh, focus) {
+    var w = Math.max(vw, vh * AR), h = w / AR;
+    var y = clamp(vh / 2 - focus * h, vh - h, 0);
+    return { clip: rect(0, 0, vw, vh), vid: rect((vw - w) / 2, y, w, h) };
+  }
+
+  function panelRect(vw, vh) {
+    var ph = vh * 0.9, pw = ph * (2 / 3);
+    if (pw > vw * 0.5) { pw = vw * 0.5; ph = pw * 1.5; }
+    var m = (vh - ph) / 2;
+    return rect(vw - m - pw, m, pw, ph);
+  }
+
+  // parada, no computador: retrato à direita, o livro centrado na janela
+  function panelDesk(vw, vh, b) {
+    var p = panelRect(vw, vh);
+    var w = p.w, h = w / AR;
+    var c = (b.v0 + b.v1) / 2;
+    var y = clamp(p.y + p.h / 2 - c * h, p.y + p.h - h, p.y);
+    return { clip: p, vid: rect(p.x, y, w, h) };
+  }
+
+  // parada, no celular: o vídeo ocupa a largura da tela e o livro sobe até
+  // quase todo ele ficar acima da faixa de texto. O pé do livro entra no
+  // degradê da faixa, o que dá a impressão de que ele sai de trás do texto.
+  var BAND = 0.57;
+  function panelPhone(vw, vh, b) {
+    var w = vw, h = w / AR;
+    var anchor = b.v0 + 0.80 * (b.v1 - b.v0);
+    var y = Math.min(vh * BAND - anchor * h, 0);
+    var cy = Math.max(y, 0);
+    return { clip: rect(0, cy, vw, Math.min(y + h, vh) - cy), vid: rect(0, y, w, h) };
+  }
+
+  function panel(vw, vh, phone, b) { return phone ? panelPhone(vw, vh, b) : panelDesk(vw, vh, b); }
+
+  // o fim: o quadro se abre e mostra o retrato inteiro, a mesa toda
+  function end(vw, vh, phone) {
+    if (phone) {
+      var w = vw, h = w / AR, y = Math.min(vh * 0.55 - h, 0);
+      var cy = Math.max(y, 0);
+      return { clip: rect(0, cy, vw, Math.min(y + h, vh) - cy), vid: rect(0, y, w, h) };
+    }
+    // o fim abre o quadro inteiro, sem corte nenhum, e mais alto que a janela
+    // das paradas: é ele que tem de ser a maior mudança da página
+    var eh = vh * 0.96, ew = eh * AR, m = (vh - eh) / 2;
+    var r = rect(vw - vh * 0.05 - ew, m, ew, eh);
+    return { clip: r, vid: r };
+  }
+
+  function mix(a, b, t) {
+    function m(p, q) { return rect(p.x + (q.x - p.x) * t, p.y + (q.y - p.y) * t,
+                                   p.w + (q.w - p.w) * t, p.h + (q.h - p.h) * t); }
+    return { clip: m(a.clip, b.clip), vid: m(a.vid, b.vid) };
+  }
+
+  function stateAt(k, p, vw, vh, phone, still) {
+    var b1 = box(BOOK[1]), b3 = box(BOOK[3]), b5 = box(BOOK[5]);
+    var open = full(vw, vh, 0.42);
+    if (still) {
+      if (k === 0) return open;
+      if (k >= 6) return end(vw, vh, phone);
+      return panel(vw, vh, phone, k <= 2 ? b1 : k <= 4 ? b3 : b5);
+    }
+    switch (k) {
+      case 0: return mix(open, panel(vw, vh, phone, b1), ramp(p, 0.30, 1));
+      case 1: return panel(vw, vh, phone, b1);
+      case 2: return mix(panel(vw, vh, phone, b1), panel(vw, vh, phone, b3), smooth(p));
+      case 3: return panel(vw, vh, phone, b3);
+      case 4: return mix(panel(vw, vh, phone, b3), panel(vw, vh, phone, b5), smooth(p));
+      case 5: return panel(vw, vh, phone, b5);
+      case 6: return mix(panel(vw, vh, phone, b5), end(vw, vh, phone), ramp(p, 0.22, 1));
+      default: return end(vw, vh, phone);
+    }
+  }
+
+  // ---- as marcas de corte --------------------------------------------------
+  var svg = document.querySelector('.marks');
+  var corners = [].slice.call(svg.querySelectorAll('.corner'));
+  var tie = svg.querySelector('.tie');
+  var ARM = 22, OUT = 9;
+
+  function drawMarks(q, v, phone, draw) {
+    var pts = q.map(function (p) { return [v.x + p[0] * v.w, v.y + p[1] * v.h]; });
+    for (var i = 0; i < 4; i++) {
+      var P = pts[i], A = pts[(i + 3) % 4], B = pts[(i + 1) % 4];
+      var da = unit(A[0] - P[0], A[1] - P[1]), db = unit(B[0] - P[0], B[1] - P[1]);
+      var o = unit(-(da[0] + db[0]), -(da[1] + db[1]));
+      var C = [P[0] + o[0] * OUT, P[1] + o[1] * OUT];
+      corners[i].setAttribute('d',
+        'M' + xy(C[0] + da[0] * ARM, C[1] + da[1] * ARM) +
+        'L' + xy(C[0], C[1]) +
+        'L' + xy(C[0] + db[0] * ARM, C[1] + db[1] * ARM));
+      corners[i].style.strokeDasharray = 1;
+      corners[i].style.strokeDashoffset = (1 - draw).toFixed(3);
+    }
+    // o fio que liga a ficha ao livro
+    var card = phone ? null : document.querySelector('.col[data-hold].is-live .card h2');
+    if (card && draw > 0.02) {
+      var r = card.getBoundingClientRect();
+      var x1, y1, x2, y2;
+      if (phone) {
+        var bot = Math.max(pts[2][1], pts[3][1]) + OUT + 6;
+        x2 = (pts[2][0] + pts[3][0]) / 2; y2 = bot;
+        x1 = x2; y1 = r.top - 14;
+        if (y1 < y2) { y1 = y2; }
+      } else {
+        // linha de chamada reta, na altura do título, até a borda do livro
+        y1 = Math.round(r.top + r.height / 2);
+        var top = Math.min(pts[0][1], pts[1][1]) + 24, bot = Math.max(pts[2][1], pts[3][1]) - 24;
+        y1 = clamp(y1, top, bot);
+        y2 = y1;
+        var f0 = (y1 - pts[0][1]) / ((pts[3][1] - pts[0][1]) || 1);
+        x2 = pts[0][0] + (pts[3][0] - pts[0][0]) * clamp(f0, 0, 1) - OUT - 6;
+        x1 = r.right + 18;
+        if (x1 > x2) { x1 = x2; }
+      }
+      tie.setAttribute('x1', x1.toFixed(1)); tie.setAttribute('y1', y1.toFixed(1));
+      tie.setAttribute('x2', x2.toFixed(1)); tie.setAttribute('y2', y2.toFixed(1));
+      tie.style.strokeDasharray = 1;
+      tie.style.strokeDashoffset = (1 - draw).toFixed(3);
+      tie.style.display = '';
+    } else {
+      tie.style.display = 'none';
+    }
+  }
+  function unit(x, y) { var l = Math.hypot(x, y) || 1; return [x / l, y / l]; }
+  function xy(x, y) { return x.toFixed(1) + ' ' + y.toFixed(1); }
+  function hideMarks() {
+    corners.forEach(function (c) { c.style.strokeDashoffset = 1; });
+    tie.style.display = 'none';
+  }
+
+  // ---- percurso ------------------------------------------------------------
+  var route = document.querySelector('.route');
+  var routeBtns = [].slice.call(route.querySelectorAll('button'));
+  routeBtns.forEach(function (b) {
+    b.addEventListener('click', function () {
+      var i = +b.getAttribute('data-goto');
+      scrollTo({ top: (C0[i] + W[i] / 2) * innerHeight,
+                 behavior: reduce.matches ? 'auto' : 'smooth' });
+    });
+  });
+
+  // ---- laço ----------------------------------------------------------------
+  var last = '';
+  function read() {
+    var vh = innerHeight, vw = innerWidth;
+    var phone = mq.matches, still = reduce.matches;
+    var t = clamp(scrollY / vh, 0, TOTAL);
+    var k = 0;
+    for (var i = 0; i < W.length; i++) if (t >= C0[i]) k = i;
+    var p = clamp((t - C0[k]) / W[k], 0, 1);
+
+    var st = stateAt(k, p, vw, vh, phone, still);
+    var v = st.vid, c = st.clip;
+    root.style.setProperty('--fx', v.x.toFixed(1) + 'px');
+    root.style.setProperty('--fy', v.y.toFixed(1) + 'px');
+    root.style.setProperty('--fk', (v.w / VW).toFixed(5));
+    root.style.setProperty('--clip', 'inset(' + c.y.toFixed(1) + 'px ' +
+      (vw - c.x - c.w).toFixed(1) + 'px ' + (vh - c.y - c.h).toFixed(1) + 'px ' +
+      c.x.toFixed(1) + 'px)');
+    root.style.setProperty('--panel-x', panelRect(vw, vh).x.toFixed(1) + 'px');
+
+    // a chapa acompanha o nome: inteira enquanto ele está lá, fora logo depois
+    heroWash.style.opacity = (1 - smooth((t - 0.40) / 0.22)).toFixed(3);
+
+    // marcas: só enquanto o quadro está parado num livro
+    if (HOLDS.indexOf(k) >= 0) {
+      var draw = still ? 1 : smooth((p - 0.08) / 0.20) * (1 - smooth((p - 0.74) / 0.20));
+      var col = document.querySelector('[data-hold="' + k + '"]');
+      document.querySelectorAll('[data-hold]').forEach(function (e) { e.classList.remove('is-live'); });
+      col.classList.add('is-live');
+      if (draw > 0.01) drawMarks(BOOK[k], v, phone, draw); else hideMarks();
+    } else {
+      hideMarks();
+    }
+
+    // O botão do fim é focável muito antes de estar visível. Um elemento
+    // alcançável por Tab a opacidade 0 é uma armadilha de teclado.
+    fin.toggleAttribute('inert', !(t > C0[6] + 0.5 * W[6]));
+
+    // percurso: fora da abertura e fora do fim
+    var on = t > C0[0] + 0.85 && t < C0[6] + 0.45 * W[6];
+    route.classList.toggle('is-on', on);
+    routeBtns.forEach(function (b) {
+      var i = +b.getAttribute('data-goto');
+      var cur = k <= 2 ? 1 : k <= 4 ? 3 : 5;
+      b.setAttribute('aria-current', String(i === cur));
+      b.tabIndex = on ? 0 : -1;
+    });
+
+    var sig = k + ':' + p.toFixed(3) + ':' + v.y.toFixed(0) + ':' + v.w.toFixed(0);
+    if (sig !== last) { last = sig; }
+  }
+
+  // Laço próprio, não ouvinte de scroll: um scrollTo programático (o harness,
+  // e o clique no percurso) nem sempre emite o evento, e aí o enquadramento
+  // fica um quadro atrasado em relação ao filme. O laço só escreve quando
+  // alguma coisa mudou de verdade.
+  var lastKey = '';
+  function onScroll() { lastKey = ''; }
+  (function tick() {
+    var key = scrollY + 'x' + innerWidth + 'x' + innerHeight;
+    if (key !== lastKey) { lastKey = key; read(); }
+    requestAnimationFrame(tick);
+  })();
+  addEventListener('resize', onScroll);
+  mq.addEventListener('change', onScroll);
+
+  // O engine dimensiona o spacer uma vez, no mount, e um innerHeight de 0
+  // nesse instante deixa a página sem pista de rolagem, em silêncio.
+  addEventListener('load', function () { dispatchEvent(new Event('resize')); read(); });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () {
+    dispatchEvent(new Event('resize')); read();
+  });
+  read();
+})();
+</script>
+</body>
+</html>

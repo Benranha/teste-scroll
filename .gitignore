@@ -1,0 +1,4 @@
+node_modules/
+scrollcraft/builds/*/lab/
+.vercel/
+.DS_Store
